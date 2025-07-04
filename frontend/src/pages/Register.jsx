@@ -4,7 +4,6 @@ import api from '../services/api';
 import PasswordStrengthBar from '../components/PasswordStrengthBar';
 import Captcha from '../components/Captcha';
 import Navbar from '../components/Navbar';
-import './Register.css'; // Add this CSS file
 
 const Register = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -77,14 +76,17 @@ const Register = () => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
     
+    // Clear errors when user starts typing
     if (error) setError('');
     
+    // Check password strength
     if (name === 'password') {
       checkPasswordStrength(value);
     }
   };
 
   const checkPasswordStrength = (password) => {
+    // Enhanced password strength calculation
     let score = 0;
     const checks = [
       password.length >= 8,
@@ -96,9 +98,11 @@ const Register = () => {
     
     score = checks.filter(check => check).length;
     
+    // Additional checks for bonus points
     if (password.length >= 12) score += 0.5;
     if (password.length >= 16) score += 0.5;
     
+    // Penalty for common patterns
     if (/(.)\1{2,}/.test(password)) score -= 0.5;
     if (/123|abc|qwerty/i.test(password)) score -= 0.5;
     
@@ -112,10 +116,13 @@ const Register = () => {
     }
 
     if (currentStep === 3) {
+      // Before showing CAPTCHA, validate password strength
       if (passwordScore < 3) {
         setError('Password is too weak. Please choose a stronger password.');
         return;
       }
+      
+      // Load CAPTCHA for final step
       await fetchCaptcha();
     }
 
@@ -134,21 +141,25 @@ const Register = () => {
     setError('');
 
     try {
+      // Debug logging
       console.log('Form data before submit:', form);
       console.log('Session ID:', sessionId);
       console.log('CAPTCHA answer:', form.captcha);
       
+      // Create payload with ALL form fields including confirm_password
       const payload = { 
         ...form, 
         session_id: sessionId 
       };
       
+      // DO NOT remove confirm_password here - let the backend handle it
       console.log('Payload being sent:', payload);
 
       const res = await api.post('/register/', payload);
       
       setMessage(res.data.message);
       
+      // Store user ID for OTP verification
       if (res.data.user_id) {
         localStorage.setItem('pendingUserId', res.data.user_id);
         setTimeout(() => navigate('/verify-email'), 2000);
@@ -168,6 +179,7 @@ const Register = () => {
         } else if (errData.details) {
           setError(`${errData.error} - ${errData.details}`);
         } else {
+          // Handle serializer errors
           const errorMessages = [];
           Object.keys(errData).forEach(field => {
             if (Array.isArray(errData[field])) {
@@ -182,9 +194,10 @@ const Register = () => {
         setError('Registration failed. Please try again.');
       }
       
+      // Reload CAPTCHA on error
       if (currentStep === 4) {
         await fetchCaptcha();
-        setForm(prev => ({ ...prev, captcha: '' }));
+        setForm(prev => ({ ...prev, captcha: '' })); // Clear captcha field
       }
     } finally {
       setLoading(false);
@@ -192,175 +205,154 @@ const Register = () => {
   };
 
   const renderStepIndicator = () => (
-    <div className="modern-step-indicator mb-5">
-      <div className="step-progress-line"></div>
+    <div className="d-flex justify-content-between mb-4">
       {[1, 2, 3, 4].map(step => (
-        <div key={step} className="step-item">
-          <div className={`step-circle ${step <= currentStep ? 'active' : ''}`}>
-            {step < currentStep ? '✨' : step}
+        <div key={step} className="d-flex align-items-center">
+          <div className={`rounded-circle d-flex align-items-center justify-content-center ${
+            step <= currentStep ? 'bg-primary text-white' : 'bg-light text-muted'
+          }`} style={{ width: '40px', height: '40px' }}>
+            {step < currentStep ? '✓' : step}
           </div>
-          <small className={`step-label ${step <= currentStep ? 'active' : ''}`}>
-            {['Account', 'Personal', 'Security', 'Verify'][step - 1]}
-          </small>
+          {step < 4 && (
+            <div className={`flex-fill mx-2 ${
+              step < currentStep ? 'bg-primary' : 'bg-light'
+            }`} style={{ height: '2px' }}></div>
+          )}
         </div>
       ))}
     </div>
   );
 
   const renderStep1 = () => (
-    <div className="step-content">
-      <div className="step-header">
-        <h4 className="step-title">✨ Account Information</h4>
-        <p className="step-subtitle">Let's start with the basics</p>
-      </div>
+    <div>
+      <h4 className="mb-3">Account Information</h4>
       
+      {/* Role Selection */}
       <div className="mb-4">
-        <label className="modern-label">I want to join as:</label>
+        <label className="form-label fw-bold">I want to join as:</label>
         <div className="row g-3">
           {roles.map(role => (
             <div key={role.value} className="col-md-6">
               <div 
-                className={`role-card ${form.role === role.value ? 'selected' : ''}`}
+                className={`card h-100 cursor-pointer border-2 ${
+                  form.role === role.value ? 'border-primary bg-primary bg-opacity-10' : 'border-light'
+                }`}
                 onClick={() => setForm(prev => ({ ...prev, role: role.value }))}
+                style={{ cursor: 'pointer' }}
               >
-                <div className="role-icon">{role.icon}</div>
-                <h5 className="role-title">{role.label}</h5>
-                <p className="role-description">{role.description}</p>
-                {form.role === role.value && (
-                  <div className="role-badge">
-                    <span className="selected-badge">Selected ✨</span>
-                  </div>
-                )}
+                <div className="card-body text-center">
+                  <div className="fs-1 mb-2">{role.icon}</div>
+                  <h5 className="card-title">{role.label}</h5>
+                  <p className="card-text text-muted small">{role.description}</p>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mb-4">
-        <label className="modern-label">Username *</label>
-        <div className="modern-input-group">
-          <input 
-            type="text" 
-            name="username" 
-            className="modern-input" 
-            value={form.username}
-            onChange={handleChange} 
-            required 
-            minLength={3}
-            placeholder="Choose a unique username"
-          />
-          <div className="input-icon">👤</div>
-        </div>
-        <div className="input-help">At least 3 characters, letters and numbers only</div>
+      <div className="mb-3">
+        <label className="form-label">Username *</label>
+        <input 
+          type="text" 
+          name="username" 
+          className="form-control" 
+          value={form.username}
+          onChange={handleChange} 
+          required 
+          minLength={3}
+          placeholder="Choose a unique username"
+        />
+        <div className="form-text">At least 3 characters, letters and numbers only</div>
       </div>
 
-      <div className="mb-4">
-        <label className="modern-label">Email Address *</label>
-        <div className="modern-input-group">
-          <input 
-            type="email" 
-            name="email" 
-            className="modern-input" 
-            value={form.email}
-            onChange={handleChange} 
-            required 
-            placeholder="your@email.com"
-          />
-          <div className="input-icon">📧</div>
-        </div>
-        <div className="input-help">We'll send you a verification code</div>
+      <div className="mb-3">
+        <label className="form-label">Email Address *</label>
+        <input 
+          type="email" 
+          name="email" 
+          className="form-control" 
+          value={form.email}
+          onChange={handleChange} 
+          required 
+          placeholder="your@email.com"
+        />
+        <div className="form-text">We'll send you a verification code</div>
       </div>
     </div>
   );
 
   const renderStep2 = () => (
-    <div className="step-content">
-      <div className="step-header">
-        <h4 className="step-title">👤 Personal Information</h4>
-        <p className="step-subtitle">Tell us a bit about yourself</p>
-      </div>
+    <div>
+      <h4 className="mb-3">Personal Information</h4>
       
       <div className="row">
-        <div className="col-md-6 mb-4">
-          <label className="modern-label">First Name *</label>
-          <div className="modern-input-group">
-            <input 
-              type="text" 
-              name="first_name" 
-              className="modern-input" 
-              value={form.first_name}
-              onChange={handleChange} 
-              required 
-              placeholder="John"
-            />
-          </div>
-        </div>
-        <div className="col-md-6 mb-4">
-          <label className="modern-label">Last Name *</label>
-          <div className="modern-input-group">
-            <input 
-              type="text" 
-              name="last_name" 
-              className="modern-input" 
-              value={form.last_name}
-              onChange={handleChange} 
-              required 
-              placeholder="Doe"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="modern-label">Phone Number *</label>
-        <div className="modern-input-group">
+        <div className="col-md-6 mb-3">
+          <label className="form-label">First Name *</label>
           <input 
-            type="tel" 
-            name="phone" 
-            className="modern-input" 
-            value={form.phone}
+            type="text" 
+            name="first_name" 
+            className="form-control" 
+            value={form.first_name}
             onChange={handleChange} 
             required 
-            placeholder="+1234567890"
+            placeholder="John"
           />
-          <div className="input-icon">📱</div>
         </div>
-        <div className="input-help">Include country code</div>
+        <div className="col-md-6 mb-3">
+          <label className="form-label">Last Name *</label>
+          <input 
+            type="text" 
+            name="last_name" 
+            className="form-control" 
+            value={form.last_name}
+            onChange={handleChange} 
+            required 
+            placeholder="Doe"
+          />
+        </div>
       </div>
 
-      <div className="mb-4">
-        <label className="modern-label">Address *</label>
-        <div className="modern-input-group">
-          <textarea 
-            name="address" 
-            className="modern-input modern-textarea" 
-            rows="3"
-            value={form.address}
-            onChange={handleChange} 
-            required 
-            placeholder="Your full address"
-          />
-          <div className="input-icon">🏠</div>
-        </div>
+      <div className="mb-3">
+        <label className="form-label">Phone Number *</label>
+        <input 
+          type="tel" 
+          name="phone" 
+          className="form-control" 
+          value={form.phone}
+          onChange={handleChange} 
+          required 
+          placeholder="+1234567890"
+        />
+        <div className="form-text">Include country code</div>
+      </div>
+
+      <div className="mb-3">
+        <label className="form-label">Address *</label>
+        <textarea 
+          name="address" 
+          className="form-control" 
+          rows="3"
+          value={form.address}
+          onChange={handleChange} 
+          required 
+          placeholder="Your full address"
+        />
       </div>
     </div>
   );
 
   const renderStep3 = () => (
-    <div className="step-content">
-      <div className="step-header">
-        <h4 className="step-title">🔒 Security</h4>
-        <p className="step-subtitle">Keep your account safe</p>
-      </div>
+    <div>
+      <h4 className="mb-3">Security</h4>
       
-      <div className="mb-4">
-        <label className="modern-label">Password *</label>
-        <div className="modern-input-group">
+      <div className="mb-3">
+        <label className="form-label">Password *</label>
+        <div className="input-group">
           <input
             type={showPassword ? "text" : "password"}
             name="password"
-            className="modern-input"
+            className="form-control"
             value={form.password}
             onChange={handleChange}
             required
@@ -369,22 +361,22 @@ const Register = () => {
           />
           <button
             type="button"
-            className="password-toggle"
+            className="btn btn-outline-secondary"
             onClick={() => setShowPassword(!showPassword)}
           >
-            {showPassword ? "👁️" : "👁️‍🗨️"}
+            {showPassword ? "Hide" : "Show"}
           </button>
         </div>
         <PasswordStrengthBar password={form.password} />
       </div>
 
-      <div className="mb-4">
-        <label className="modern-label">Confirm Password *</label>
-        <div className="modern-input-group">
+      <div className="mb-3">
+        <label className="form-label">Confirm Password *</label>
+        <div className="input-group">
           <input
             type={showConfirmPassword ? "text" : "password"}
             name="confirm_password"
-            className={`modern-input ${!passwordsMatch ? 'error' : ''}`}
+            className={`form-control ${!passwordsMatch ? 'is-invalid' : ''}`}
             value={form.confirm_password}
             onChange={handleChange}
             required
@@ -392,74 +384,57 @@ const Register = () => {
           />
           <button
             type="button"
-            className="password-toggle"
+            className="btn btn-outline-secondary"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
-            {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
+            {showConfirmPassword ? "Hide" : "Show"}
           </button>
         </div>
         {!passwordsMatch && (
-          <div className="error-message">
+          <div className="invalid-feedback d-block">
             Passwords do not match
           </div>
         )}
       </div>
 
-      <div className="password-requirements">
-        <div className="requirements-header">
-          <i className="requirements-icon">🛡️</i>
-          <strong>Password Requirements</strong>
-        </div>
-        <ul className="requirements-list">
-          <li className={`requirement-item ${form.password.length >= 8 ? 'valid' : ''}`}>
-            <span className="requirement-check">{form.password.length >= 8 ? '✅' : '⭕'}</span>
-            At least 8 characters
-          </li>
-          <li className={`requirement-item ${/[A-Z]/.test(form.password) && /[a-z]/.test(form.password) ? 'valid' : ''}`}>
-            <span className="requirement-check">{/[A-Z]/.test(form.password) && /[a-z]/.test(form.password) ? '✅' : '⭕'}</span>
-            Upper & lowercase letters
-          </li>
-          <li className={`requirement-item ${/[0-9]/.test(form.password) && /[^A-Za-z0-9]/.test(form.password) ? 'valid' : ''}`}>
-            <span className="requirement-check">{/[0-9]/.test(form.password) && /[^A-Za-z0-9]/.test(form.password) ? '✅' : '⭕'}</span>
-            Numbers & special characters
-          </li>
-        </ul>
+      <div className="alert alert-info">
+        <small>
+          <strong>Password Requirements:</strong>
+          <ul className="mb-0 mt-1">
+            <li>At least 8 characters long</li>
+            <li>Include uppercase and lowercase letters</li>
+            <li>Include numbers and special characters</li>
+            <li>Avoid common words or personal information</li>
+          </ul>
+        </small>
       </div>
     </div>
   );
 
   const renderStep4 = () => (
-    <div className="step-content">
-      <div className="step-header">
-        <h4 className="step-title">🔐 Verification</h4>
-        <p className="step-subtitle">One last step to secure your account</p>
-      </div>
+    <div>
+      <h4 className="mb-3">Verification</h4>
       
-      <div className="verification-info">
-        <i className="info-icon">ℹ️</i>
+      <div className="alert alert-info">
+        <i className="bi bi-info-circle me-2"></i>
         Please complete the security verification to finish registration.
       </div>
 
       {captcha && (
         <>
-          <div className="captcha-container">
-            <Captcha captcha={captcha} onRefresh={fetchCaptcha} />
-          </div>
-          <div className="mb-4">
-            <label className="modern-label">Enter CAPTCHA Code *</label>
-            <div className="modern-input-group">
-              <input
-                type="text"
-                name="captcha"
-                className="modern-input"
-                value={form.captcha}
-                onChange={handleChange}
-                required
-                placeholder="Enter the code above"
-                autoComplete="off"
-              />
-              <div className="input-icon">🔑</div>
-            </div>
+          <Captcha captcha={captcha} onRefresh={fetchCaptcha} />
+          <div className="mb-3">
+            <label className="form-label">Enter CAPTCHA Code *</label>
+            <input
+              type="text"
+              name="captcha"
+              className="form-control"
+              value={form.captcha}
+              onChange={handleChange}
+              required
+              placeholder="Enter the code above"
+              autoComplete="off"
+            />
           </div>
         </>
       )}
@@ -469,87 +444,84 @@ const Register = () => {
   return (
     <>
       <Navbar />
-      <div className="modern-register-container">
-        <div className="register-background"></div>
-        <div className="container d-flex justify-content-center align-items-center py-5">
-          <div className="modern-register-card">
-            <div className="register-header">
-              <h2 className="register-title">✨ Join Homestay</h2>
-              <p className="register-subtitle">Create your account in just a few steps</p>
+      <div className="container d-flex justify-content-center align-items-center py-5">
+        <div className="p-4 shadow rounded bg-white" style={{ width: '100%', maxWidth: '600px' }}>
+          <div className="text-center mb-4">
+            <h2 className="fw-bold text-primary">Join Homestay</h2>
+            <p className="text-muted">Create your account in just a few steps</p>
+          </div>
+
+          {renderStepIndicator()}
+
+          {message && (
+            <div className="alert alert-success">
+              <i className="bi bi-check-circle me-2"></i>
+              {message}
             </div>
+          )}
 
-            {renderStepIndicator()}
+          {error && (
+            <div className="alert alert-danger">
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              {error}
+            </div>
+          )}
 
-            {message && (
-              <div className="modern-alert success">
-                <i className="alert-icon">✅</i>
-                {message}
-              </div>
-            )}
+          <form onSubmit={handleSubmit}>
+            {currentStep === 1 && renderStep1()}
+            {currentStep === 2 && renderStep2()}
+            {currentStep === 3 && renderStep3()}
+            {currentStep === 4 && renderStep4()}
 
-            {error && (
-              <div className="modern-alert error">
-                <i className="alert-icon">⚠️</i>
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="modern-form">
-              {currentStep === 1 && renderStep1()}
-              {currentStep === 2 && renderStep2()}
-              {currentStep === 3 && renderStep3()}
-              {currentStep === 4 && renderStep4()}
-
-              <div className="form-navigation">
-                {currentStep > 1 && (
-                  <button
-                    type="button"
-                    className="nav-btn prev-btn"
-                    onClick={handlePrevStep}
-                    disabled={loading}
-                  >
-                    ← Previous
-                  </button>
-                )}
-                
-                <div className="nav-btn-spacer"></div>
-                
+            <div className="d-flex justify-content-between mt-4">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={handlePrevStep}
+                  disabled={loading}
+                >
+                  Previous
+                </button>
+              )}
+              
+              <div className="ms-auto">
                 {currentStep < 4 ? (
                   <button
                     type="button"
-                    className="nav-btn next-btn"
+                    className="btn btn-primary"
                     onClick={handleNextStep}
                     disabled={loading || !validateStep(currentStep)}
                   >
-                    Next →
+                    Next
                   </button>
                 ) : (
                   <button
                     type="submit"
-                    className="nav-btn submit-btn"
+                    className="btn btn-success"
                     disabled={loading || !validateStep(currentStep)}
                   >
                     {loading ? (
                       <>
-                        <span className="loading-spinner"></span>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
                         Creating Account...
                       </>
                     ) : (
-                      <>Create Account ✨</>
+                      'Create Account'
                     )}
                   </button>
                 )}
               </div>
-            </form>
-
-            <div className="register-footer">
-              <p>
-                Already have an account?{' '}
-                <Link to="/login" className="footer-link">
-                  Sign in here
-                </Link>
-              </p>
             </div>
+          </form>
+
+          <div className="text-center mt-4">
+            <p className="text-muted">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary fw-semibold">
+                Sign in here
+              </Link>
+            </p>
           </div>
         </div>
       </div>
