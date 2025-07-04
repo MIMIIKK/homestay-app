@@ -160,12 +160,8 @@ const Register = () => {
       setMessage(res.data.message);
       
       // Store user ID for OTP verification
-      if (res.data.user_id) {
-        localStorage.setItem('pendingUserId', res.data.user_id);
-        setTimeout(() => navigate('/verify-email'), 2000);
-      } else {
-        setTimeout(() => navigate('/login'), 2000);
-      }
+      setTimeout(() => navigate('/login'), 2000);
+
       
     } catch (err) {
       console.error('Registration error:', err.response?.data);
